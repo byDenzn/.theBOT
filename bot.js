@@ -592,4 +592,4 @@ client.on('ready', async () => {
 
 const guildId = 'SERVER_ID';
 
-client.login('YOURTOKN');
+client.login('TOKEN');

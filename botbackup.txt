@@ -1,0 +1,411 @@
+const { Client, Intents, MessageEmbed, MessageActionRow, MessageButton } = require('discord.js');
+
+
+const client = new Client({ 
+  intents: [ 
+    Intents.FLAGS.GUILDS,
+    Intents.FLAGS.GUILD_MEMBERS,
+    Intents.FLAGS.GUILD_MESSAGES,
+    Intents.FLAGS.DIRECT_MESSAGES 
+  ]
+});
+
+client.on('ready', () => {
+  console.log(`Bot ist eingeloggt als ${client.user.tag}`);
+
+
+  // AKTIVITÄTEN
+
+  const activities = [
+    { name: 'with himself.', type: 'PLAYING' },
+    { name: 'his progress.', type: 'WATCHING' },
+    { name: 'to the future.', type: 'LISTENING' }
+  ];
+
+  const getRandomActivity = () => {
+    const randomIndex = Math.floor(Math.random() * activities.length);
+    return activities[randomIndex];
+  };
+
+  const setActivity = () => {
+    const activity = getRandomActivity();
+    client.user.setPresence({ activities: [{ name: activity.name, type: activity.type }] });
+  };
+
+  setActivity();
+
+  setInterval(() => {
+    setActivity();
+  }, 2 * 60 * 1000);
+});
+
+
+// WILLKOMMENSNACHRICHT
+
+client.on('guildMemberAdd', member => {
+  const welcomeChannelId = '1086017443350204446';
+  const welcomeChannel = member.guild.channels.cache.get(welcomeChannelId);
+
+  if (welcomeChannel) {
+    const welcomeEmbed = new MessageEmbed()
+      .setColor('#50d281')
+      .setTitle('Willkommen!')
+      .setDescription(`Willkommen ${member} auf unserem Server! \n Respektiere und Akzeptiere bitte die Regeln bevor du den Server weiter begutachtest! \n Willkommen an Board.`)
+      .setThumbnail(member.user.displayAvatarURL())
+      .setTimestamp()
+      .setFooter('.boy by .denzn#5412', member.guild.iconURL());
+
+    welcomeChannel.send({ embeds: [welcomeEmbed] })
+      .catch(console.error);
+  }
+});
+
+// VERLASSENNACHRICHT
+
+client.on('guildMemberRemove', member => {
+  const goodbyeChannelId = '1086017495997088015';
+  const goodbyeChannel = client.channels.cache.get(goodbyeChannelId);
+  if (goodbyeChannel) {
+    const embed = new MessageEmbed()
+      .setTitle('Auf Wiedersehen')
+      .setDescription(`${member} hat den Server verlassen.\n Auf Wiedersehen, bis bald!`)
+      .setColor('#50d281')
+      .setThumbnail(member.user.displayAvatarURL())
+      .setTimestamp()
+      .setFooter('.boy by .denzn#5412', member.guild.iconURL());
+    goodbyeChannel.send({ embeds: [embed] })
+      .catch(console.error);
+  }
+});
+
+
+// HELPBEFEHL
+
+client.on('ready', async () => {
+  try {
+    await client.application.commands.set([
+      {
+        name: 'help',
+        description: 'Zeigt eine Liste der verfügbaren Befehle an'
+      }
+    ]);
+    console.log('Slash-Befehle erfolgreich registriert!');
+  } catch (error) {
+    console.error('Fehler beim Registrieren der Slash-Befehle:', error);
+  }
+});
+
+// Auf Interaktionen mit Slash-Befehlen reagieren
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isCommand()) return;
+
+  if (interaction.commandName === 'help') {
+    const helpEmbed = new MessageEmbed()
+  .setColor('#50d281')
+  .setTitle('Hilfe')
+  .setDescription('Hier ist eine Liste der verfügbaren Befehle:')
+  .addField('/help', 'Zeigt diese Hilfe an')
+  .addField('/ban', 'bannt ein Mitglied')
+  .addField('/unban', 'entbannt ein Mitglied')
+  .addField('/kick', 'kickt ein Mitglied')
+  .setTimestamp()
+  .setFooter('.boy by .denzn#5412', client.user.displayAvatarURL());
+
+interaction.reply({ embeds: [helpEmbed] });
+}
+});
+
+
+// KICKBEFEHL
+
+client.on('ready', () => {
+  client.api.applications(client.user.id).guilds('1028723896163258458').commands.post({
+    data: {
+      name: 'kick',
+      description: 'Kickt einen Benutzer vom Server',
+      options: [
+        {
+          name: 'user',
+          description: 'Der Benutzer, der gekickt werden soll',
+          type: 6, 
+          required: true
+        },
+        {
+          name: 'reason',
+          description: 'Der Grund für den Kick',
+          type: 3, 
+          required: false
+        }
+      ]
+    }
+  });
+});
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isCommand()) return;
+
+  const { commandName, options } = interaction;
+
+  if (commandName === 'kick') {
+    // Überprüfen, ob der Benutzer die Berechtigung zum Kicken hat
+    if (!interaction.member.permissions.has('KICK_MEMBERS')) {
+      return interaction.reply({
+        content: 'Du hast nicht die Berechtigung, Mitglieder zu kicken.',
+        ephemeral: true
+      });
+    }
+
+    // Den Benutzer und den Grund aus den Slash-Befehlsoptionen abrufen
+    const user = options.getUser('user');
+    const reason = options.getString('reason') || 'Kein Grund angegeben';
+
+    // Den Benutzer kicken
+    try {
+      await interaction.guild.members.kick(user.id, reason);
+      interaction.reply({
+        content: `Der Benutzer ${user.tag} wurde erfolgreich gekickt.`,
+        ephemeral: true
+      });
+    } catch (error) {
+      console.error('Fehler beim Kicken des Benutzers:', error);
+      interaction.reply({
+        content: 'Es ist ein Fehler aufgetreten. Der Benutzer konnte nicht gekickt werden.',
+        ephemeral: true
+      });
+    }
+  }
+});
+
+
+// BANBEFEHL
+
+client.on('ready', () => {
+  client.api.applications(client.user.id).guilds('1028723896163258458').commands.post({
+    data: {
+      name: 'ban',
+      description: 'Bannt einen Benutzer vom Server',
+      options: [
+        {
+          name: 'user',
+          description: 'Der Benutzer, der gebannt werden soll',
+          type: 6,
+          required: true
+        },
+        {
+          name: 'reason',
+          description: 'Der Grund für den Ban',
+          type: 3,
+          required: false
+        }
+      ]
+    }
+  });
+});
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isCommand()) return;
+
+  const { commandName, options } = interaction;
+
+  if (commandName === 'ban') {
+    // Überprüfen, ob der Benutzer die Berechtigung zum Bannen hat
+    if (!interaction.member.permissions.has('BAN_MEMBERS')) {
+      return interaction.reply({
+        content: 'Du hast nicht die Berechtigung, Mitglieder zu bannen.',
+        ephemeral: true
+      });
+    }
+
+    // Den Benutzer und den Grund aus den Slash-Befehlsoptionen abrufen
+    const user = options.getUser('user');
+    const reason = options.getString('reason') || 'Kein Grund angegeben';
+
+    // Den Benutzer bannen
+    try {
+      await interaction.guild.members.ban(user.id, { reason });
+      interaction.reply({
+        content: `Der Benutzer ${user.tag} wurde erfolgreich gebannt.`,
+        ephemeral: true
+      });
+    } catch (error) {
+      console.error('Fehler beim Bannen des Benutzers:', error);
+      interaction.reply({
+        content: 'Es ist ein Fehler aufgetreten. Der Benutzer konnte nicht gebannt werden.',
+        ephemeral: true
+      });
+    }
+  }
+});
+
+
+// UNBANBEFEHL
+
+client.on('ready', () => {
+  client.api.applications(client.user.id).guilds('1028723896163258458').commands.post({
+    data: {
+      name: 'unban',
+      description: 'Entbannt einen Benutzer auf dem Server',
+      options: [
+        {
+          name: 'user',
+          description: 'Der Benutzer, der entbannt werden soll',
+          type: 6,
+          required: true
+        }
+      ]
+    }
+  });
+});
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isCommand()) return;
+
+  const { commandName, options } = interaction;
+
+  if (commandName === 'unban') {
+    if (!interaction.member.permissions.has('BAN_MEMBERS')) {
+      return interaction.reply({
+        content: 'Du hast nicht die Berechtigung, Mitglieder zu entbannen.',
+        ephemeral: true
+      });
+    }
+
+    const user = options.getUser('user');
+
+    try {
+      await interaction.guild.bans.remove(user.id);
+      interaction.reply({
+        content: `Der Benutzer ${user.tag} wurde erfolgreich entbannt.`,
+        ephemeral: true
+      });
+    } catch (error) {
+      console.error('Fehler beim Entbannen des Benutzers:', error);
+      interaction.reply({
+        content: 'Es ist ein Fehler aufgetreten. Der Benutzer konnte nicht entbannt werden.',
+        ephemeral: true
+      });
+    }
+  }
+});
+
+// VERIFY
+
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isCommand()) return;
+
+  if (interaction.commandName === 'verify') {
+    const verifizierteRollenId = '1086029939335249970'; // Ersetze 'ROLE_ID' durch die tatsächliche ID der verifizierten Rolle
+    const channelOption = interaction.options.get('channel');
+
+    const verifyEmbed = new MessageEmbed()
+      .setColor('#50d281')
+      .setTitle('Verifizierung')
+      .setDescription('Klicke auf den Button unten, um verifiziert zu werden.');
+
+    const verifyButton = new MessageButton()
+      .setCustomId('verify_button')
+      .setLabel('Verifizieren')
+      .setStyle('SUCCESS');
+
+    const actionRow = new MessageActionRow().addComponents(verifyButton);
+
+    await interaction.deferReply(); // Verzögere die ursprüngliche Interaktion
+
+    let channel; // Definiere die Variable für den Kanal
+
+    if (channelOption) {
+      // Überprüfe, ob das Argument vorhanden ist
+      channel = channelOption.channel;
+    } else {
+      // Fallback: Verwende den aktuellen Kanal der Interaktion
+      channel = interaction.channel;
+    }
+
+    await channel.send({ embeds: [verifyEmbed], components: [actionRow] }); // Sende die Verifizierungsnachricht in den ausgewählten Kanal
+
+    await interaction.editReply('Die Verifizierungsnachricht wurde gesendet.'); // Aktualisiere die ursprüngliche Antwort
+  }
+});
+
+// Event-Handler für den Button
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  if (interaction.customId === 'verify_button') {
+    const member = interaction.member;
+    const verifizierteRollenId = '1086029939335249970'; // Ersetze 'ROLE_ID' durch die tatsächliche ID der verifizierten Rolle
+    const role = member.guild.roles.cache.get(verifizierteRollenId);
+
+    if (role) {
+      try {
+        await member.roles.add(role);
+        await interaction.editReply({ content: 'Du wurdest erfolgreich verifiziert!', components: [] }); // Aktualisiere die ursprüngliche Antwort
+      } catch (error) {
+        console.error('Fehler beim Verifizieren des Benutzers:', error);
+        await interaction.editReply({ content: 'Es ist ein Fehler aufgetreten. Die Verifizierung konnte nicht abgeschlossen werden.', components: [] }); // Aktualisiere die ursprüngliche Antwort
+      }
+    } else {
+      console.error('Die verifizierte Rolle wurde nicht gefunden.');
+      await interaction.editReply({ content: 'Es ist ein Fehler aufgetreten. Die Verifizierung konnte nicht abgeschlossen werden.', components: [] }); // Aktualisiere die ursprüngliche Antwort
+    }
+  }
+});
+
+// ANNOUNCE
+
+// Befehl registrieren
+const announceCommandData = {
+  name: 'announce',
+  description: 'Sende eine Ankündigung',
+  options: [
+    {
+      name: 'text',
+      description: 'Der Text der Ankündigung',
+      type: 'STRING',
+      required: true,
+    },
+  ],
+};
+
+client.on('ready', () => {
+  const guildId = '1028723896163258458'; // Ersetze 'GUILD_ID' durch die ID deines Discord-Servers
+  const guild = client.guilds.cache.get(guildId);
+
+  if (!guild) return;
+
+  guild.commands.create(announceCommandData);
+});
+
+// Event-Handler für den Befehl
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isCommand()) return;
+
+  if (interaction.commandName === 'announce') {
+    const announceChannelId = '1086019334452813866D'; // Ersetze 'CHANNEL_ID' durch die ID des Ziel-Channels
+
+    if (interaction.channelId !== announceChannelId) {
+      return interaction.reply('Dieser Befehl kann nur im gewünschten Ankündigungs-Channel verwendet werden.');
+    }
+
+    const announceEmbed = new MessageEmbed()
+      .setColor('#50d281')
+      .setTitle('Ankündigung')
+      .setDescription('Hier ist eine wichtige Ankündigung.');
+
+    const announcementText = interaction.options.getString('text');
+    if (announcementText) {
+      announceEmbed.addField('Nachricht', announcementText);
+    }
+
+    const channel = await client.channels.fetch(announceChannelId);
+    if (channel && channel.type === 'text') {
+      await channel.send({ embeds: [announceEmbed] });
+      await interaction.reply('Die Ankündigung wurde erfolgreich im Ziel-Channel gepostet.');
+    } else {
+      await interaction.reply('Der Ziel-Channel konnte nicht gefunden werden.');
+    }
+  }
+});
+
+
+client.login('MTAxNjQwODc1MTk2OTk0MzYxMg.G2IVMS.KSDIyK2XkyCtrAbLMU--pEUygQegGKkU9OCv_o');

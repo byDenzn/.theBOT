@@ -6,39 +6,138 @@ const client = new Client({
     Intents.FLAGS.GUILDS,
     Intents.FLAGS.GUILD_MEMBERS,
     Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.DIRECT_MESSAGES 
+    Intents.FLAGS.DIRECT_MESSAGES, 
   ]
 });
 
-client.on('ready', () => {
-  console.log(`Bot ist eingeloggt als ${client.user.tag}`);
+
+  // AKTIVITÄT
 
 
-  // AKTIVITÄTEN
 
-  const activities = [
-    { name: 'with himself.', type: 'PLAYING' },
-    { name: 'his progress.', type: 'WATCHING' },
-    { name: 'to the future.', type: 'LISTENING' }
-  ];
-
-  const getRandomActivity = () => {
-    const randomIndex = Math.floor(Math.random() * activities.length);
-    return activities[randomIndex];
+  const activityCommandData = {
+    name: 'activity',
+    description: 'Ändert die Aktivität des Bots',
+    options: [
+      {
+        name: 'activity_type',
+        description: 'Der Aktivitätstyp',
+        type: 'STRING',
+        required: true,
+        choices: [
+          { name: 'Spielen', value: 'spielen' },
+          { name: 'Hören', value: 'hören' },
+          { name: 'Gucken', value: 'gucken' },
+          { name: 'Streamen', value: 'streamen' },
+        ],
+      },
+      {
+        name: 'activity_name',
+        description: 'Der Name der Aktivität',
+        type: 'STRING',
+        required: true,
+      },
+    ],
   };
-
-  const setActivity = () => {
-    const activity = getRandomActivity();
-    client.user.setPresence({ activities: [{ name: activity.name, type: activity.type }] });
+  
+  const getActivityType = (activityType) => {
+    switch (activityType) {
+      case 'playing':
+        return 'PLAYING';
+      case 'listening':
+        return 'LISTENING';
+      case 'watching':
+        return 'WATCHING';
+      case 'streaming':
+        return 'STREAMING';
+      default:
+        return 'PLAYING';
+    }
   };
+  
+  client.on('ready', async () => {
+    console.log(`Bot ist eingeloggt als ${client.user.tag}`);
+  
+    try {
+      const guild = await client.guilds.fetch(guildId);
+      if (!guild) {
+        console.log('Die angegebene Guild-ID ist ungültig.');
+        return;
+      }
+  
+      const defaultActivities = [
+        { type: 'PLAYING', name: 'Ball' },
+        { type: 'LISTENING', name: 'Musik' },
+        { type: 'WATCHING', name: 'Videos' },
+        { type: 'STREAMING', name: 'twitch.TV', url: 'https://www.twitch.tv/example' },
+      ];
+  
+      const updateActivity = () => {
+        const randomActivity = defaultActivities[Math.floor(Math.random() * defaultActivities.length)];
+  
+        const presenceOptions = {
+          activities: [
+            {
+              name: randomActivity.name,
+              type: getActivityType(randomActivity.type),
+              url: randomActivity.url,
+            },
+          ],
+        };
+  
+        client.user.setPresence(presenceOptions);
+      };
 
-  setActivity();
+      updateActivity();
+      setInterval(updateActivity, 120000);
 
-  setInterval(() => {
-    setActivity();
-  }, 2 * 60 * 1000);
-});
-
+      await guild.commands.create(activityCommandData);
+  
+      console.log('Der /activity-Befehl wurde erfolgreich erstellt.');
+    } catch (error) {
+      console.error('Fehler beim Starten des Bots:', error);
+    }
+  });
+  
+  client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isCommand()) return;
+  
+    if (interaction.commandName === 'activity') {
+      const activityType = interaction.options.getString('activity_type');
+      const activityName = interaction.options.getString('activity_name');
+  
+      if (!activityType) {
+        await interaction.reply({ content: 'Du musst den Aktivitätstyp angeben.', ephemeral: true });
+        return;
+      }
+  
+      if (!activityName) {
+        await interaction.reply({ content: 'Du musst den Namen der Aktivität angeben.', ephemeral: true });
+        return;
+      }
+  
+      const activity = {
+        type: getActivityType(activityType),
+        name: activityName,
+      };
+  
+      try {
+        client.user.setActivity(activity);
+        await interaction.reply({
+          content: `Aktivität wurde erfolgreich zu ${activityType} ${activityName} geändert.`,
+          ephemeral: true,
+        });
+      } catch (error) {
+        console.error('Fehler beim Ändern der Aktivität:', error);
+        await interaction.reply({
+          content: 'Es ist ein Fehler aufgetreten. Die Aktivität konnte nicht geändert werden.',
+          ephemeral: true,
+        });
+      }
+    }
+  });
+  
+  
 
 // WILLKOMMENSNACHRICHT
 
@@ -89,9 +188,9 @@ client.on('ready', async () => {
         description: 'Zeigt eine Liste der verfügbaren Befehle an'
       }
     ]);
-    console.log('Slash-Befehle erfolgreich registriert!');
+    console.log('/help-Befehl erfolgreich registriert!');
   } catch (error) {
-    console.error('Fehler beim Registrieren der Slash-Befehle:', error);
+    console.error('Fehler beim Registrieren des /help-Befehl:', error);
   }
 });
 
@@ -112,6 +211,7 @@ client.on('interactionCreate', async (interaction) => {
       { name: '/kick', description: 'kickt ein Mitglied' },
       { name: '/verify', description: 'legt deinen Verifizierungs-Kanal fest' },
       { name: '/announce', description: 'führt eine Ankündigung durch mit deiner Nachricht' },
+      { name: '/activity', description: 'ändert die Aktivität deines BOT' },
     ];
 
     for (const command of commands) {
@@ -354,6 +454,7 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 });
+
 // ANNOUNCE
 
 client.on('ready', async () => {
@@ -473,3 +574,22 @@ client.on('interactionCreate', async (interaction) => {
   }
 }
 });
+
+client.on('ready', async () => {
+  console.log(`Bot ist eingeloggt als ${client.user.tag}`);
+  
+  try {
+    const guild = await client.guilds.fetch(guildId);
+    if (!guild) {
+      console.log('Die angegebene Guild-ID ist ungültig.');
+      return;
+    }
+  } catch (error) {
+    console.error('Fehler beim Abrufen der Guild:', error);
+    return;
+  }
+});
+
+const guildId = 'SERVER_ID';
+
+client.login('YOURTOKN');

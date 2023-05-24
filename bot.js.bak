@@ -1017,6 +1017,6 @@ client.on('interactionCreate', async (interaction) => {
     }
   });
 
-const guildId = '';
+const guildId = '1028723896163258458';
 
-client.login('');
+client.login('MTAxNjQwODc1MTk2OTk0MzYxMg.GJN1uP.VqPLdhnbEpt_SMIgIJbpF5e2Cqw_zu9-vejNlo');
